@@ -1,0 +1,20 @@
+{
+    "name": "NAT_Rule_Collection",
+    "priority": 300,
+    "action": "Dnat",
+    "target_rule_collection_group": ["Base_FW_Rule_AustraliaSoutheast"],
+    "rules": [
+        {
+            "name": "NAT Rule 1",
+            "description": "NAT rule example",
+            "protocols": ["TCP"],
+            "source_addresses": ["0.0.0.0/0"],
+            "destination_address": "192.168.1.5",
+            "destination_ports": ["80"],
+            "translated_address": "10.0.0.5",
+            "translated_port": "8080"            
+        }
+    ],
+    "rfc_number": [],
+    "affected_services": []
+}

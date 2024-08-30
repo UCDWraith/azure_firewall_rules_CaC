@@ -1,0 +1,21 @@
+{
+    "name": "Network_Rules_Basic_Services",
+    "priority": 5000,
+    "action": "Allow",
+    "target_rule_collection_group": ["Base_FW_Rule_AustraliaEast","Canary_FW_Rule_AustraliaEast"],
+    "rules": [
+        {
+            "description": "Allow all private IP ranges to access the internet - HTTP + HTTPS",
+            "destination_addresses": ["*"],
+            "destination_fqdns": [],
+            "destination_ip_groups": [],
+            "destination_ports": ["80", "443"],
+            "name": "Allow Internet - HTTP + HTTPS",
+            "protocols": ["TCP"],
+            "source_addresses": ["10.0.0.0/8"],
+            "source_ip_groups": []
+        }
+    ],
+    "rfc_number": [],
+    "affected_services": []
+}

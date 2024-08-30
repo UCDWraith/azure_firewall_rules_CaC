@@ -1,0 +1,128 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- none
+
+pool:
+  name: VMSS-ADO-Agents
+
+parameters:
+- name: environment
+  displayName: Environment
+  type: string
+  default: payg-canary
+  values:
+  - payg-prod
+  - payg-canary
+
+variables:
+- group: ${{parameters.environment}}-firewall_rules
+
+jobs:
+  - job: terraform_pipeline
+    steps:
+      - task: MicrosoftSecurityDevOps@1
+        displayName: 'SecDevOps - ADO'
+        inputs:
+          command: 'run'
+
+      - task: TerraformInstaller@1
+        displayName: 'tfinstall'
+        inputs:
+          azureSubscription: $(svc_connection)
+          terraformVersion: 'latest'
+
+      - task: TerraformTaskV4@4
+        displayName: 'tfinit'
+        inputs:
+          provider: 'azurerm'
+          command: 'init'
+          backendServiceArm: $(svc_connection)
+          backendAzureRmResourceGroupName: $(backendAzureRmResourceGroupName)
+          backendAzureRmStorageAccountName: $(backendAzureRmStorageAccountName)
+          backendAzureRmContainerName: $(backendAzureRmContainerName)
+          backendAzureRmKey: $(backendAzureRmKey)
+          backendAzureRmSasToken: $(ARM_SAS_TOKEN)
+
+      - task: TerraformTaskV4@4
+        displayName: 'tfvalidate'
+        inputs:
+          provider: 'azurerm'
+          command: 'validate'
+
+      - task: TerraformTaskV4@4
+        displayName: 'tfplan'
+        inputs:
+          environmentServiceNameAzureRM: $(svc_connection)
+          provider: 'azurerm'
+          command: 'plan'
+          commandOptions: '-out=$(Pipeline.Workspace)/s/$(plan_file) -var-file $(System.DefaultWorkingDirectory)/environments/$(env)/$(env)-ado-variables.tfvars'
+
+      # Write `terraform show` output in default format to a markdown file
+      - task: TerraformTaskV4@4
+        name: TerraformShow
+        displayName: 'tfshow'
+        inputs:
+          environmentServiceNameAzureRM: $(svc_connection)
+          provider: 'azurerm'
+          command: 'show'
+          commandOptions: '$(Pipeline.Workspace)/s/$(plan_file) -no-color'
+          outputTo: 'file'
+          outputFormat: 'default'
+          fileName: '$(Pipeline.Workspace)/s/TerraformPlan.md'
+          workingDirectory: $(System.DefaultWorkingDirectory)
+      
+      - task: TerraformTaskV4@4
+        name: TerraformGraph
+        displayName: 'tfgraph'
+        inputs:
+          environmentServiceNameAzureRM: $(svc_connection)
+          provider: 'azurerm'
+          command: 'custom'
+          commandOptions: 'graph -plan=$(Pipeline.Workspace)/s/$(plan_file)'
+          outputTo: 'file'
+          outputFormat: 'default'
+          fileName: '$(Pipeline.Workspace)/s/TerraformGraph.txt'
+          workingDirectory: $(System.DefaultWorkingDirectory)
+
+      # Display plan in the pipeline build summary
+      - task: Bash@3
+        displayName: 'Create plan summary file'
+        inputs:
+          targetType: 'inline'
+          workingDirectory: '$(System.DefaultWorkingDirectory)'
+          script: |
+            ls -la
+            sed -i '1 i\```' TerraformPlan.md
+            echo '```' >> TerraformPlan.md
+            echo "##vso[task.uploadsummary]$(System.DefaultWorkingDirectory)/TerraformPlan.md"
+ 
+      - task: CopyFiles@2
+        displayName: 'Copy Files to: release'
+        inputs:
+          SourceFolder: '$(Pipeline.Workspace)/s'
+          Contents: |
+            **/*.tf*
+            **/*.json
+            .terraform.lock.hcl
+            metadata.txt
+            TerraformPlan.md
+            TerraformGraph.txt
+            $(System.DefaultWorkingDirectory)/environments/$(env)/**
+          TargetFolder: '$(Pipeline.Workspace)/s/release/$(env)'
+          OverWrite: true
+
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish Artifact: Release'
+        inputs:
+          PathtoPublish: '$(Pipeline.Workspace)/s/release/$(env)'
+          ArtifactName: $(env)
+          publishLocation: 'Container'
+
+      - script: |
+          echo "##vso[build.addbuildtag]$(env)"
+        displayName: 'Add build tag to repo'
+      

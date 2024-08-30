@@ -1,0 +1,19 @@
+{
+    "name": "App_Rule_Collection",
+    "priority": 10000,
+    "action": "Allow",
+    "target_rule_collection_group": ["Base_FW_Rule_AustraliaSoutheast", "Base_FW_Rule_AustraliaEast","Canary_FW_Rule_AustraliaEast"],
+    "rules": [
+        {
+            "name": "HTTP to Google",
+            "description": "Allow HTTP access to Google",
+            "source_addresses": ["10.0.0.0/8"],
+            "destination_fqdns": ["www.google.com"],
+            "destination_ports": ["80"],
+            "protocol_type": "Http",
+            "protocol_port": "80"
+        }
+    ],
+    "rfc_number": [],
+    "affected_services": []
+}

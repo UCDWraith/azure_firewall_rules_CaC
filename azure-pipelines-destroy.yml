@@ -1,0 +1,51 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- main
+
+pool:
+  name: VMSS-ADO-Agents
+
+parameters:
+- name: environment
+  displayName: Environment
+  type: string
+  default: payg-canary
+  values:
+  - payg-prod
+  - payg-canary
+
+variables:
+- group: ${{parameters.environment}}-firewall_rules
+
+
+stages:
+  - stage: tfdestroy
+    jobs:
+      - job: destroy
+        steps:
+          - task: TerraformInstaller@1
+            displayName: tfinstall
+            inputs:
+              azureSubscription: $(svc_connection)
+              terraformVersion: 'latest'
+          - task: TerraformTaskV4@4
+            displayName: tfinit
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              backendServiceArm: $(svc_connection)
+              backendAzureRmResourceGroupName: $(backendAzureRmResourceGroupName)
+              backendAzureRmStorageAccountName: $(backendAzureRmStorageAccountName)
+              backendAzureRmContainerName: $(backendAzureRmContainerName)
+              backendAzureRmKey: $(backendAzureRmKey)
+          - task: TerraformTaskV4@4
+            displayName: tfdestroy
+            inputs:
+              environmentServiceNameAzureRM: $(svc_connection)
+              provider: 'azurerm'
+              command: 'destroy'
+              commandOptions: '-var-file $(System.DefaultWorkingDirectory)/environments/$(env)/$(env)-ado-variables.tfvars'
